@@ -9,6 +9,42 @@ export type Product = Database["public"]["Tables"]["products"]["Row"];
 export type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
 export type ProductUpdate = Database["public"]["Tables"]["products"]["Update"];
 
+function slugify(value: string) {
+    return value
+        .toLowerCase()
+        .trim()
+        .replace(/['"]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+}
+
+async function ensureUniqueSlug(supabase: Awaited<ReturnType<typeof createClient>>, raw: string, excludeId?: string) {
+    const base = slugify(raw) || "product";
+    const { data } = await supabase
+        .from("products")
+        .select("id, slug")
+        .ilike("slug", `${base}%`);
+
+    const others = (data || []).filter((row) => row.slug && row.id !== excludeId);
+    if (others.length === 0 && (!data || data.every((row) => row.slug !== base || row.id === excludeId))) {
+        return base;
+    }
+
+    let maxSuffix = 1;
+    for (const row of others) {
+        const slug = row.slug || "";
+        if (slug === base) {
+            maxSuffix = Math.max(maxSuffix, 2);
+            continue;
+        }
+        const match = slug.match(new RegExp(`^${base}-(\\d+)$`));
+        if (match?.[1]) {
+            maxSuffix = Math.max(maxSuffix, Number(match[1]) + 1);
+        }
+    }
+    return `${base}-${maxSuffix}`;
+}
+
 export async function listProducts(options?: { q?: string; category?: string; sort?: string }) {
     const supabase = await createClient();
 
@@ -109,7 +145,7 @@ export async function createProduct(formData: FormData) {
 
     // Parse form data
     const title = formData.get('title') as string;
-    const slug = formData.get('slug') as string;
+    const slugInput = (formData.get('slug') as string) || title;
     const description = formData.get('description') as string;
     const price_cents = parseInt(formData.get('price_cents') as string);
     const category_id = formData.get('category_id') as string;
@@ -120,6 +156,8 @@ export async function createProduct(formData: FormData) {
     const image_url = formData.get('image_url') as string;
 
     const urls = image_url ? [image_url] : [];
+
+    const slug = await ensureUniqueSlug(supabase, slugInput);
 
     const product: ProductInsert = {
         title,
@@ -148,7 +186,7 @@ export async function updateProduct(id: string, formData: FormData) {
     const supabase = await createClient();
 
     const title = formData.get('title') as string;
-    const slug = formData.get('slug') as string;
+    const slugInput = (formData.get('slug') as string) || title;
     const description = formData.get('description') as string;
     const price_cents = parseInt(formData.get('price_cents') as string);
     const category_id = formData.get('category_id') as string;
@@ -168,6 +206,8 @@ export async function updateProduct(id: string, formData: FormData) {
     // If we handle upload in client component and just pass URL here, it's easier.
     // We will stick to: Form submits the URL string (hidden input).
     const image_url = formData.get('image_url') as string;
+
+    const slug = await ensureUniqueSlug(supabase, slugInput, id);
 
     const updates: ProductUpdate = {
         title,

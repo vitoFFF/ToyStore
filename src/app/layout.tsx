@@ -1,12 +1,14 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/layout/header";
+import { AiChatFloating } from "@/components/layout/AiChatFloating";
 import { Footer } from "@/components/layout/footer";
 import { Toaster } from "sonner";
 import { createClient } from "@/lib/supabase/server";
 import { LanguageProvider } from "@/components/i18n/LanguageProvider";
 import { createTranslator } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/i18n.server";
+import { CartProvider } from "@/components/cart/CartProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -48,12 +50,15 @@ export default async function RootLayout({
     <html lang={lang} suppressHydrationWarning>
       <body className={`${inter.className} min-h-screen flex flex-col bg-background text-foreground antialiased`}>
         <LanguageProvider initialLang={lang}>
-          <Header user={user} isAdmin={isAdmin} />
-          <main className="flex-1 pt-20">
-            {children}
-          </main>
-          <Footer />
-          <Toaster position="top-center" richColors />
+          <CartProvider>
+            <Header user={user} isAdmin={isAdmin} />
+            <main className="flex-1 pt-20">
+              {children}
+            </main>
+            <Footer />
+            <AiChatFloating />
+            <Toaster position="top-center" richColors />
+          </CartProvider>
         </LanguageProvider>
       </body>
     </html>

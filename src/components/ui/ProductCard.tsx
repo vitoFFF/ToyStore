@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Heart, Star, X } from "lucide-react";
+import { Heart, Star, X, ShoppingCart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Database } from "@/lib/database.types";
 import { useI18n } from "@/components/i18n/LanguageProvider";
 import { formatAgeRange, formatCurrency } from "@/lib/i18n";
+import { useCart } from "@/components/cart/CartProvider";
 
 type DbProduct = Database['public']['Tables']['products']['Row'] & {
     categories: { name: string; slug: string } | null;
@@ -22,6 +23,7 @@ export function ProductCard({ product }: ProductCardProps) {
     const [isWishlisted, setIsWishlisted] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
     const { t, locale } = useI18n();
+    const { addItem } = useCart();
 
     const handleWishlist = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -42,6 +44,23 @@ export function ProductCard({ product }: ProductCardProps) {
     useEffect(() => {
         setIsMounted(true);
     }, []);
+
+    const handleAddToCart = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        addItem({
+            id: product.id,
+            title: product.title,
+            price_cents: product.price_cents,
+            currency,
+            image_url: mainImage ?? null,
+            slug: product.slug,
+        });
+        toast(t("productCard.addedToCart"), {
+            description: t("productCard.inCartDesc", { title: product.title }),
+            icon: <ShoppingCart className="w-4 h-4" />,
+        });
+    };
 
     return (
         <Link href={`/product/${product.slug}`} className="block h-full">
@@ -79,6 +98,15 @@ export function ProductCard({ product }: ProductCardProps) {
                     )}
                 >
                     <Heart className={cn("w-4 h-4", isWishlisted && "fill-current")} />
+                </button>
+
+                {/* Add to Cart - Emoji Button */}
+                <button
+                    onClick={handleAddToCart}
+                    className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 text-xs font-bold tracking-wide shadow-sm border border-white/70 hover:border-primary/30 hover:text-primary hover:-translate-y-0.5 transition-all"
+                >
+                    <span aria-hidden="true">🛒</span>
+                    {t("common.addToCart")}
                 </button>
 
                 {/* Image Area */}

@@ -167,6 +167,97 @@
   --animate-float: float 3s ease-in-out infinite;
 }
 
+@keyframes lux-sheen {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+@keyframes lux-pulse {
+  0% {
+    opacity: 0.3;
+    transform: translateY(-6px);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: translateY(0px);
+  }
+
+  100% {
+    opacity: 0.3;
+    transform: translateY(-6px);
+  }
+}
+
+@layer components {
+  .lux-header {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .lux-header::before {
+    content: "";
+    position: absolute;
+    inset: -6px 0 auto 0;
+    height: 140%;
+    background:
+      radial-gradient(120% 120% at 15% -20%, rgba(255, 255, 255, 0.7), transparent 60%),
+      radial-gradient(80% 140% at 85% -30%, rgba(120, 90, 255, 0.35), transparent 60%);
+    opacity: 0.65;
+    transform: translateY(-6px);
+    animation: lux-pulse 12s ease-in-out infinite;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .lux-header::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(250, 216, 145, 0.9), rgba(166, 140, 255, 0.9), transparent);
+    background-size: 200% 100%;
+    animation: lux-sheen 10s linear infinite;
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .lux-header--scrolled::before {
+    opacity: 0.35;
+    animation-play-state: paused;
+  }
+
+  .lux-header-inner {
+    position: relative;
+    border-radius: 999px;
+    padding: 0.25rem 0.75rem;
+    background: linear-gradient(120deg, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0.25));
+    box-shadow:
+      0 20px 40px -28px rgba(20, 20, 60, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+
+  .dark .lux-header-inner {
+    background: linear-gradient(120deg, rgba(30, 32, 60, 0.9), rgba(20, 20, 45, 0.6));
+    box-shadow:
+      0 22px 45px -30px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .lux-brand {
+    background-size: 200% 100%;
+    animation: lux-sheen 14s linear infinite;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

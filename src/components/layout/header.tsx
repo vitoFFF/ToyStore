@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ShoppingCart, Heart, Search, Menu, User, ChevronDown, Gamepad2, LogIn, LogOut, Shield } from "lucide-react";
@@ -14,10 +14,10 @@ import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { useCart } from "@/components/cart/CartProvider";
 import {
     Sheet,
     SheetContent,
-    SheetHeader,
     SheetTitle,
     SheetTrigger,
     SheetClose
@@ -37,9 +37,12 @@ interface HeaderProps {
 
 export function Header({ user, isAdmin }: HeaderProps) {
     const [isScrolled, setIsScrolled] = useState(false);
+    const [clientUser, setClientUser] = useState<SupabaseUser | null | undefined>(user ?? null);
     const router = useRouter();
-    const supabase = createClient();
+    const supabase = useMemo(() => createClient(), []);
     const { t } = useI18n();
+    const { itemCount } = useCart();
+    const showAdmin = Boolean(clientUser && isAdmin);
     const luxuryHover =
         "relative transition-all duration-300 ease-out hover:-translate-y-0.5 hover:text-primary hover:shadow-[0_18px_40px_-24px_rgba(90,60,255,0.65)] after:content-[''] after:absolute after:left-4 after:right-4 after:bottom-1 after:h-[2px] after:bg-gradient-to-r after:from-transparent after:via-primary/80 after:to-transparent after:scale-x-0 after:origin-center after:transition-transform after:duration-300 hover:after:scale-x-100";
 
@@ -50,6 +53,22 @@ export function Header({ user, isAdmin }: HeaderProps) {
         window.addEventListener("scroll", handleScroll);
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
+
+    useEffect(() => {
+        let isMounted = true;
+        supabase.auth.getUser().then(({ data }) => {
+            if (isMounted) {
+                setClientUser(data.user ?? null);
+            }
+        });
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setClientUser(session?.user ?? null);
+        });
+        return () => {
+            isMounted = false;
+            subscription.unsubscribe();
+        };
+    }, [supabase]);
 
     const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -81,28 +100,28 @@ export function Header({ user, isAdmin }: HeaderProps) {
     return (
         <header
             className={cn(
-                "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
+                "fixed top-0 left-0 right-0 z-50 transition-all duration-300 lux-header",
                 isScrolled
-                    ? "bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl shadow-lg border-b border-border/50 py-3"
+                    ? "lux-header--scrolled bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl shadow-lg border-b border-border/50 py-3"
                     : "bg-transparent py-5"
             )}
         >
-            <div className="container mx-auto px-4 flex items-center justify-between">
+            <div className="container mx-auto px-4 flex items-center justify-between lux-header-inner">
                 {/* Logo */}
                 <Link href="/" className="flex items-center gap-2 group">
                     <div className="relative">
                         <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full group-hover:bg-primary/40 transition-all duration-500" />
                         <Gamepad2 className="w-8 h-8 text-primary relative z-10 interact-icon group-hover:scale-110 transition-transform duration-300" />
                     </div>
-                    <span className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-pink-500">
+                    <span className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-pink-500 lux-brand">
                         {BRAND.name}
-                        {isAdmin && <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20 align-middle">{t("common.admin")}</span>}
+                        {showAdmin && <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20 align-middle">{t("common.admin")}</span>}
                     </span>
                 </Link>
 
                 {/* Desktop Nav */}
                 <nav className="hidden md:flex items-center gap-1">
-                    {isAdmin ? (
+                    {showAdmin ? (
                         <>
                             <Link href="/admin" className={`font-medium text-foreground/80 hover:text-primary px-4 py-2 rounded-full hover:bg-primary/5 flex items-center gap-2 ${luxuryHover}`}>
                                 {t("nav.dashboard")}
@@ -173,49 +192,51 @@ export function Header({ user, isAdmin }: HeaderProps) {
 
                 {/* Right Actions */}
                 <div className="flex items-center gap-2 md:gap-3">
-                    {!isAdmin && (
-                        <>
-                            <form onSubmit={handleSearch} className="hidden lg:flex items-center bg-secondary/50 rounded-full pl-4 pr-2 py-1.5 border border-transparent focus-within:border-primary/30 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:shadow-md transition-all duration-300 w-48 focus-within:w-64">
-                                <Search className="w-4 h-4 text-muted-foreground mr-2" />
-                                <input
-                                    name="q"
-                                    type="text"
-                                    placeholder={t("header.searchPlaceholder")}
-                                    className="bg-transparent border-none outline-none text-sm w-full placeholder:text-muted-foreground/50 h-full"
-                                />
-                            </form>
+                    <form onSubmit={handleSearch} className="hidden lg:flex items-center bg-secondary/50 rounded-full pl-4 pr-2 py-1.5 border border-transparent focus-within:border-primary/30 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:shadow-md transition-all duration-300 w-48 focus-within:w-64">
+                        <Search className="w-4 h-4 text-muted-foreground mr-2" />
+                        <input
+                            name="q"
+                            type="text"
+                            placeholder={t("header.searchPlaceholder")}
+                            className="bg-transparent border-none outline-none text-sm w-full placeholder:text-muted-foreground/50 h-full"
+                        />
+                    </form>
 
-                            {/* Mobile Search Trigger */}
-                            <Button variant="ghost" size="icon" className="lg:hidden rounded-full hover:bg-secondary" onClick={() => router.push("/shop")}>
-                                <Search className="w-5 h-5" />
+                    {/* Mobile Search Trigger */}
+                    <Button variant="ghost" size="icon" className="lg:hidden rounded-full hover:bg-secondary" onClick={() => router.push("/shop")}>
+                        <Search className="w-5 h-5" />
+                    </Button>
+
+                    {!showAdmin && (
+                        <div className="hidden sm:flex items-center gap-1 border-l border-border/50 pl-3 ml-2">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`rounded-full hover:bg-pink-50 hover:text-pink-500 ${luxuryHover}`}
+                                onClick={() => showToast(t("header.wishlistSoon"))}
+                            >
+                                <Heart className="w-5 h-5" />
                             </Button>
 
-                            <div className="hidden sm:flex items-center gap-1 border-l border-border/50 pl-3 ml-2">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className={`rounded-full hover:bg-pink-50 hover:text-pink-500 ${luxuryHover}`}
-                                    onClick={() => showToast(t("header.wishlistSoon"))}
-                                >
-                                    <Heart className="w-5 h-5" />
-                                </Button>
-
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className={`relative rounded-full hover:bg-blue-50 hover:text-blue-600 ${luxuryHover}`}
-                                    onClick={() => showToast(t("header.cartSoon"))}
-                                >
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`relative rounded-full hover:bg-blue-50 hover:text-blue-600 ${luxuryHover}`}
+                                asChild
+                            >
+                                <Link href="/cart">
                                     <ShoppingCart className="w-5 h-5" />
-                                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-white text-[10px] font-bold flex items-center justify-center rounded-full ring-2 ring-white dark:ring-slate-900 animate-in zoom-in">
-                                        0
-                                    </span>
-                                </Button>
-                            </div>
-                        </>
+                                    {itemCount > 0 && (
+                                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-white text-[10px] font-bold flex items-center justify-center rounded-full ring-2 ring-white dark:ring-slate-900 animate-in zoom-in">
+                                            {itemCount}
+                                        </span>
+                                    )}
+                                </Link>
+                            </Button>
+                        </div>
                     )}
 
-                    {user ? (
+                    {clientUser ? (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button
@@ -231,7 +252,7 @@ export function Header({ user, isAdmin }: HeaderProps) {
                                 <DropdownMenuItem className="p-3 rounded-xl hover:bg-secondary/50 cursor-pointer" asChild>
                                     <Link href="/account">{t("header.myAccount")}</Link>
                                 </DropdownMenuItem>
-                                {isAdmin && (
+                                {showAdmin && (
                                     <DropdownMenuItem className="p-3 rounded-xl hover:bg-secondary/50 cursor-pointer text-indigo-600 font-bold" asChild>
                                         <Link href="/admin">
                                             <Shield className="w-4 h-4 mr-2" />
@@ -283,7 +304,7 @@ export function Header({ user, isAdmin }: HeaderProps) {
                             </div>
 
                             <div className="flex-1 overflow-y-auto p-6">
-                                {!isAdmin && (
+                                {!showAdmin && (
                                     <form onSubmit={(e) => { handleSearch(e); }} className="bg-secondary/50 p-2 rounded-2xl flex items-center mb-8 focus-within:ring-2 ring-primary/20 transition-all">
                                         <Search className="w-5 h-5 text-muted-foreground ml-2" />
                                         <input
@@ -296,7 +317,7 @@ export function Header({ user, isAdmin }: HeaderProps) {
                                 )}
 
                                 <nav className="flex flex-col gap-2 mb-8">
-                                    {isAdmin ? (
+                                    {showAdmin ? (
                                         <>
                                             <SheetClose asChild>
                                                 <Link href="/admin" className="px-4 py-4 rounded-2xl hover:bg-secondary font-bold text-lg transition-colors flex items-center justify-between">
@@ -323,9 +344,18 @@ export function Header({ user, isAdmin }: HeaderProps) {
                                         ))
                                     )}
 
+                                    {!showAdmin && (
+                                        <SheetClose asChild>
+                                            <Link href="/cart" className="px-4 py-4 rounded-2xl hover:bg-secondary font-bold text-lg transition-colors flex items-center justify-between group">
+                                                {t("nav.cart")}
+                                                <ShoppingCart className="w-4 h-4 opacity-70" />
+                                            </Link>
+                                        </SheetClose>
+                                    )}
+
                                     <div className="h-px bg-border/50 my-2" />
 
-                                    {user ? (
+                                    {clientUser ? (
                                         <>
                                             <SheetClose asChild>
                                                 <button onClick={handleLogout} className="w-full px-4 py-4 rounded-2xl hover:bg-red-50 text-red-500 font-medium transition-colors flex items-center justify-between group text-left">
@@ -351,7 +381,7 @@ export function Header({ user, isAdmin }: HeaderProps) {
                                     )}
                                 </nav>
 
-                                {!isAdmin && (
+                                {!showAdmin && (
                                     <div>
                                         <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 px-2">{t("header.popularCategories")}</h4>
                                         <div className="grid grid-cols-2 gap-3">

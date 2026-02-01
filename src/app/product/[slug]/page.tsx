@@ -3,10 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { getProductBySlug } from "@/lib/data/products";
-import { ShoppingCart, Star, ArrowLeft, Truck, ShieldCheck, RefreshCcw, Heart, Pencil } from "lucide-react";
+import { Star, ArrowLeft, Truck, ShieldCheck, RefreshCcw, Heart, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getServerTranslator } from "@/lib/i18n.server";
 import { formatCurrency, getLocale } from "@/lib/i18n";
+import { AddToCartButton } from "@/components/cart/AddToCartButton";
 
 async function AdminEditButton({ productId }: { productId: string }) {
     const { t } = await getServerTranslator();
@@ -116,10 +117,17 @@ export default async function ProductPage(props: { params: Promise<{ slug: strin
                     </div>
 
                     <div className="flex gap-4">
-                        <Button size="lg" className="flex-1 h-16 rounded-2xl text-xl font-bold shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all bg-gradient-to-r from-primary to-purple-600">
-                            <ShoppingCart className="w-6 h-6 mr-2" />
-                            {t("product.addToCart")}
-                        </Button>
+                        <AddToCartButton
+                            disabled={product.stock <= 0}
+                            product={{
+                                id: product.id,
+                                title: product.title,
+                                price_cents: product.price_cents,
+                                currency: product.currency || "GEL",
+                                image_url: product.image_urls?.[0] || null,
+                                slug: product.slug,
+                            }}
+                        />
                         <Button size="icon" variant="outline" className="h-16 w-16 rounded-2xl border-2 hover:bg-secondary transition-colors">
                             <Heart className="w-6 h-6 text-muted-foreground" />
                         </Button>
